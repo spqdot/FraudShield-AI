@@ -2,8 +2,11 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import pandas as pd
+import logging
 
 from fraudshield.agents.fraud_workflow import build_fraud_workflow
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="FraudShield AI",
@@ -62,6 +65,12 @@ def health_check():
 
 @app.post("/api/v1/analyze")
 def analyze_transaction(request: TransactionRequest):
+    """
+    Analyze a transaction for fraud using the LangGraph workflow.
+    
+    Returns fraud detection and risk assessment results.
+    Handles errors gracefully with proper logging.
+    """
     try:
         transaction = pd.DataFrame([request.model_dump()])
 
@@ -77,9 +86,10 @@ def analyze_transaction(request: TransactionRequest):
         result = fraud_workflow.invoke(initial_state)
 
         if result.get("error"):
+            logger.error(f"Workflow error: {result['error']}")
             raise HTTPException(
                 status_code=500,
-                detail=result["error"]
+                detail=f"Fraud analysis failed: {result['error']}"
             )
 
         return {
@@ -91,4 +101,8 @@ def analyze_transaction(request: TransactionRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected error in analyze_transaction: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error during transaction analysis"
+        )

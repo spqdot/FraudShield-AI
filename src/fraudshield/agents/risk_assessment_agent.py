@@ -8,7 +8,26 @@ def assess_transaction_risk(
     """
     Assess transaction risk using ML probability
     and transparent business rules.
+    
+    Args:
+        transaction: DataFrame with one transaction row.
+        fraud_result: Dictionary with fraud detection result.
+        
+    Returns:
+        Dictionary with risk assessment details.
+        
+    Raises:
+        ValueError: If inputs are invalid.
     """
+    
+    if fraud_result is None:
+        raise ValueError("fraud_result cannot be None")
+    
+    if "fraud_probability" not in fraud_result:
+        raise ValueError("fraud_result missing fraud_probability field")
+    
+    if transaction is None or transaction.empty:
+        raise ValueError("Transaction DataFrame cannot be None or empty")
 
     fraud_probability = fraud_result["fraud_probability"]
 

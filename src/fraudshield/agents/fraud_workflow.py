@@ -1,6 +1,7 @@
 
 from fraudshield.agents.risk_assessment_agent import assess_transaction_risk
-from typing import TypedDict, Any
+from fraudshield.agents.fraud_detection_agent import run_fraud_detection
+from typing import TypedDict, Any, Literal
 from langgraph.graph import StateGraph, START, END
 
 
@@ -15,9 +16,6 @@ class FraudState(TypedDict):
     risk_result: dict | None
     investigation_status: str
     error: str | None
-
-
-from fraudshield.agents.fraud_detection_agent import run_fraud_detection
 
 
 def fraud_detection_node(state: FraudState) -> dict:
@@ -46,25 +44,15 @@ def fraud_detection_node(state: FraudState) -> dict:
         }
 
 
-def build_fraud_workflow():
+def conditional_route(state: FraudState) -> Literal["risk_assessment", "end_failed"]:
     """
-    Build and compile the FraudShield LangGraph workflow.
+    Route to risk_assessment only if fraud detection succeeded.
+    If fraud detection failed (fraud_result is None), route to end.
     """
-
-    workflow = StateGraph(FraudState)
-
-    workflow.add_node("fraud_detection", fraud_detection_node)
-    workflow.add_node("risk_assessment", risk_assessment_node)
-
-    workflow.add_edge(START, "fraud_detection")
-    workflow.add_edge("fraud_detection", "risk_assessment")
-    workflow.add_edge("risk_assessment", END)
-
-    return workflow.compile()
-
-
-
-
+    if state["fraud_result"] is not None:
+        return "risk_assessment"
+    else:
+        return "end_failed"
 
 
 def risk_assessment_node(state: FraudState) -> dict:
@@ -89,3 +77,29 @@ def risk_assessment_node(state: FraudState) -> dict:
             "investigation_status": "failed",
             "error": str(e)
         }
+
+
+def build_fraud_workflow():
+    """
+    Build and compile the FraudShield LangGraph workflow.
+    Includes conditional routing: if fraud detection succeeds,
+    continue to risk assessment. Otherwise, go directly to END.
+    """
+
+    workflow = StateGraph(FraudState)
+
+    workflow.add_node("fraud_detection", fraud_detection_node)
+    workflow.add_node("risk_assessment", risk_assessment_node)
+
+    workflow.add_edge(START, "fraud_detection")
+    workflow.add_conditional_edges(
+        "fraud_detection",
+        conditional_route,
+        {
+            "risk_assessment": "risk_assessment",
+            "end_failed": END
+        }
+    )
+    workflow.add_edge("risk_assessment", END)
+
+    return workflow.compile()
