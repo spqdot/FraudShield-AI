@@ -1,5 +1,6 @@
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import pandas as pd
 import logging
@@ -12,6 +13,18 @@ app = FastAPI(
     title="FraudShield AI",
     description="Multi-Agent Financial Fraud Detection and Investigation API",
     version="1.0.0"
+)
+
+# Enable CORS for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+    "http://localhost:5173",
+    "http://fraudshield-ai-frontend-2026.s3-website.eu-north-1.amazonaws.com",
+],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 fraud_workflow = build_fraud_workflow()
